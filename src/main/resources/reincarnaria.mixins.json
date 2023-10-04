@@ -6,17 +6,11 @@
   "mixins": [
     "AbstractHorseEntityMixin",
     "ArmorStandEntityMixin",
-    "BoatEntityMixin",
     "CamelEntityMixin",
-    "EggEntityMixin",
-    "ExperienceBottleEntityMixin",
     "ItemFrameEntityMixin",
     "PlayerEntityMixin",
-    "PotionEntityMixin",
-    "ProjectileEntityMixin",
     "ServerPlayerEntityMixin",
     "ServerWorldMixin",
-    "SnowBallEntity",
     "VehicleInventoryMixin"
   ],
   "client": [

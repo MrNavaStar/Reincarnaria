@@ -1,14 +1,20 @@
 package me.mrnavastar.reincarnaria.services;
 
+import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.context.CommandContext;
 import me.drex.vanish.api.VanishAPI;
 import me.mrnavastar.reincarnaria.Reincarnaria;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
+import net.minecraft.command.argument.EntityArgumentType;
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.ExperienceOrbEntity;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.network.packet.s2c.play.TitleS2CPacket;
 import net.minecraft.particle.ParticleEffect;
 import net.minecraft.particle.ParticleTypes;
+import net.minecraft.server.command.CommandManager;
+import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
@@ -19,7 +25,46 @@ import net.minecraft.world.GameMode;
 
 public class DeadPlayerService {
 
-    public static void init() {
+    private static void registerCommands(CommandDispatcher<ServerCommandSource> commandDispatcher) {
+        commandDispatcher.register(
+                CommandManager.literal("revive").requires(source -> source.hasPermissionLevel(4))
+
+                        .executes(ctx -> {
+                            ServerPlayerEntity exec = ctx.getSource().getPlayer();
+                            if (exec != null) revivePlayer(ctx, exec);
+
+                            return 1;
+                        })
+
+                        .then(CommandManager.argument("player", EntityArgumentType.player())
+                                .executes(ctx -> revivePlayer(ctx, EntityArgumentType.getPlayer(ctx, "player")))
+                        )
+
+
+        );
+    }
+
+    private static int revivePlayer(CommandContext<ServerCommandSource> context, ServerPlayerEntity player) {
+        if (!VanishAPI.isVanished(player)) {
+            MutableText text = (MutableText) Text.of(player.getName().getString() + " is not dead!");
+            text.formatted(Formatting.RED);
+            context.getSource().sendMessage(text);
+            return 1;
+        }
+
+        player.changeGameMode(GameMode.SURVIVAL);
+        player.clearStatusEffects();
+        VanishAPI.setVanish(player, false);
+
+        MutableText text = (MutableText) Text.of(player.getName().getString() + " rose from the dead!");
+        text.formatted(Formatting.GREEN);
+        context.getSource().sendMessage(text);
+        player.sendMessage(text);
+        return 0;
+    }
+
+    public static void init(CommandDispatcher<ServerCommandSource> commandDispatcher) {
+        registerCommands(commandDispatcher);
 
         // On Player Death
         ServerLivingEntityEvents.ALLOW_DEATH.register((entity, damageSource, damageAmount) -> {
