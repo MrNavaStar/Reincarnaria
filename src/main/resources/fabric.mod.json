@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "reincarnaria",
+  "version": "${version}",
+  "name": "Reincarnaria",
+  "description": "",
+  "authors": [],
+  "contact": {
+    "repo": "https://github.com/ethan/Reincarnaria"
+  },
+  "license": "All-Rights-Reserved",
+  "icon": "assets/reincarnaria/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "client": [
+      "me.mrnavastar.reincarnaria.client.ReincarnariaClient"
+    ],
+    "main": [
+      "me.mrnavastar.reincarnaria.Reincarnaria"
+    ]
+  },
+  "mixins": [
+    "reincarnaria.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "fabric": "*",
+    "minecraft": "${minecraft_version}"
+  }
+}

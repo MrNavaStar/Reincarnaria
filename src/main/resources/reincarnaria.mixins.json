@@ -1,0 +1,27 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "me.mrnavastar.reincarnaria.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "mixins": [
+    "AbstractHorseEntityMixin",
+    "ArmorStandEntityMixin",
+    "BoatEntityMixin",
+    "CamelEntityMixin",
+    "EggEntityMixin",
+    "ExperienceBottleEntityMixin",
+    "ItemFrameEntityMixin",
+    "PlayerEntityMixin",
+    "PotionEntityMixin",
+    "ProjectileEntityMixin",
+    "ServerPlayerEntityMixin",
+    "ServerWorldMixin",
+    "SnowBallEntity",
+    "VehicleInventoryMixin"
+  ],
+  "client": [
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
