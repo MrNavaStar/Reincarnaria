@@ -42,10 +42,10 @@ public class DeadPlayerService {
 
                 player.getInventory().dropAll();
                 player.setHealth(20);
-                player.setExperiencePoints(0);
-                player.setExperienceLevel(0);
                 player.getHungerManager().setFoodLevel(20);
                 player.getServerWorld().spawnEntity(new ExperienceOrbEntity(player.getServerWorld(), player.getX(), player.getY(), player.getZ(), player.getXpToDrop()));
+                player.setExperiencePoints(0);
+                player.setExperienceLevel(0);
 
                 player.addStatusEffect(new StatusEffectInstance(StatusEffects.BLINDNESS, 100, 10, true, false));
                 player.addStatusEffect(new StatusEffectInstance(StatusEffects.GLOWING, -1, 0, true, false));
