@@ -1,23 +1,29 @@
 package me.mrnavastar.reincarnaria;
 
-import com.mojang.brigadier.CommandDispatcher;
+import com.google.gson.Gson;
 import me.mrnavastar.reincarnaria.services.DeadPlayerService;
+import me.mrnavastar.reincarnaria.services.PartyService;
+import mrnavastar.sqlib.database.Database;
+import mrnavastar.sqlib.database.SQLiteDatabase;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.minecraft.server.PlayerManager;
-import net.minecraft.server.command.ServerCommandSource;
 
 public class Reincarnaria implements ModInitializer {
 
+    public static String MOD_ID = "reincarnaria";
+    public static Gson GSON = new Gson();
     public static PlayerManager playerManager;
 
     @Override
     public void onInitialize() {
+        Database database = new SQLiteDatabase(Reincarnaria.MOD_ID, "Reincarnaria", "config");
+
         ServerLifecycleEvents.SERVER_STARTED.register(server -> {
             playerManager = server.getPlayerManager();
-            CommandDispatcher<ServerCommandSource> commandDispatcher = server.getCommandManager().getDispatcher();
 
-            DeadPlayerService.init(commandDispatcher);
+            DeadPlayerService.init(server);
+            PartyService.init(server, database);
         });
     }
 }

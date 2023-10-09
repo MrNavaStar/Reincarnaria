@@ -2,17 +2,17 @@ package me.mrnavastar.reincarnaria.services;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.context.CommandContext;
-import me.drex.vanish.api.VanishAPI;
+//import me.drex.vanish.api.VanishAPI;
 import me.mrnavastar.reincarnaria.Reincarnaria;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.minecraft.command.argument.EntityArgumentType;
-import net.minecraft.entity.Entity;
 import net.minecraft.entity.ExperienceOrbEntity;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.network.packet.s2c.play.TitleS2CPacket;
 import net.minecraft.particle.ParticleEffect;
 import net.minecraft.particle.ParticleTypes;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -27,44 +27,42 @@ public class DeadPlayerService {
 
     private static void registerCommands(CommandDispatcher<ServerCommandSource> commandDispatcher) {
         commandDispatcher.register(
-                CommandManager.literal("revive").requires(source -> source.hasPermissionLevel(4))
+            CommandManager.literal("revive").requires(source -> source.hasPermissionLevel(4))
 
-                        .executes(ctx -> {
-                            ServerPlayerEntity exec = ctx.getSource().getPlayer();
-                            if (exec != null) revivePlayer(ctx, exec);
+                .executes(ctx -> {
+                    ServerPlayerEntity exec = ctx.getSource().getPlayer();
+                    if (exec != null) revivePlayer(ctx, exec);
+                    return 1;
+                })
 
-                            return 1;
-                        })
-
-                        .then(CommandManager.argument("player", EntityArgumentType.player())
-                                .executes(ctx -> revivePlayer(ctx, EntityArgumentType.getPlayer(ctx, "player")))
-                        )
-
-
+                .then(CommandManager.argument("player", EntityArgumentType.player())
+                        .executes(ctx -> revivePlayer(ctx, EntityArgumentType.getPlayer(ctx, "player"))))
         );
     }
 
     private static int revivePlayer(CommandContext<ServerCommandSource> context, ServerPlayerEntity player) {
-        if (!VanishAPI.isVanished(player)) {
+        /*if (!VanishAPI.isVanished(player)) {
             MutableText text = (MutableText) Text.of(player.getName().getString() + " is not dead!");
             text.formatted(Formatting.RED);
             context.getSource().sendMessage(text);
             return 1;
-        }
+        }*/
 
         player.changeGameMode(GameMode.SURVIVAL);
         player.clearStatusEffects();
-        VanishAPI.setVanish(player, false);
+        //VanishAPI.setVanish(player, false);
 
         MutableText text = (MutableText) Text.of(player.getName().getString() + " rose from the dead!");
         text.formatted(Formatting.GREEN);
         context.getSource().sendMessage(text);
-        player.sendMessage(text);
+        if (context.getSource().getPlayer() != player) {
+            player.sendMessage(text);
+        }
         return 0;
     }
 
-    public static void init(CommandDispatcher<ServerCommandSource> commandDispatcher) {
-        registerCommands(commandDispatcher);
+    public static void init(MinecraftServer server) {
+        registerCommands(server.getCommandFunctionManager().getDispatcher());
 
         // On Player Death
         ServerLivingEntityEvents.ALLOW_DEATH.register((entity, damageSource, damageAmount) -> {
@@ -97,7 +95,7 @@ public class DeadPlayerService {
                 player.addStatusEffect(new StatusEffectInstance(StatusEffects.SATURATION, -1, 99, true, false));
 
                 player.changeGameMode(GameMode.ADVENTURE);
-                VanishAPI.setVanish(player, true);
+                //VanishAPI.setVanish(player, true);
                 return false;
             }
             return true;

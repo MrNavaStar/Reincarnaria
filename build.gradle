@@ -9,6 +9,7 @@ group = project.maven_group
 repositories {
     maven { url 'https://maven.nucleoid.xyz' }
     maven { url 'https://jitpack.io' }
+    maven { url "https://api.modrinth.com/maven" }
 }
 
 dependencies {
@@ -20,6 +21,11 @@ dependencies {
     // Fabric API. This is technically optional, but you probably want it anyway.
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
+    //SQLib
+    modImplementation("maven.modrinth:sqlib:2.1.8")
+
+    //Dev
+    modImplementation("maven.modrinth:easy-eula:1.0.0")
     // Vanish api
     modImplementation "me.lucko:fabric-permissions-api:0.2-SNAPSHOT"
     modImplementation "eu.pb4:placeholder-api:2.2.0+1.20.2"

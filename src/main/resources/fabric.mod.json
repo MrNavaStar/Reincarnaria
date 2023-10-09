@@ -12,9 +12,6 @@
   "icon": "assets/reincarnaria/icon.png",
   "environment": "*",
   "entrypoints": {
-    "client": [
-      "me.mrnavastar.reincarnaria.client.ReincarnariaClient"
-    ],
     "main": [
       "me.mrnavastar.reincarnaria.Reincarnaria"
     ]
