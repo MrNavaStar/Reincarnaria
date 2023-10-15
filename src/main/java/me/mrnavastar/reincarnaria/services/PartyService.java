@@ -1,25 +1,30 @@
 package me.mrnavastar.reincarnaria.services;
 
+import com.google.gson.JsonObject;
 import com.mojang.authlib.GameProfile;
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
+import me.electrobrine.quill_notifications.api.Pigeon;
+import me.electrobrine.quill_notifications.api.QuillEvents;
 import me.mrnavastar.reincarnaria.Reincarnaria;
+import me.mrnavastar.reincarnaria.util.ChatUtil;
 import mrnavastar.sqlib.DataContainer;
 import mrnavastar.sqlib.Table;
 import mrnavastar.sqlib.database.Database;
 import mrnavastar.sqlib.sql.SQLDataType;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.TextReplacementConfig;
+import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.minecraft.command.argument.GameProfileArgumentType;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.PlayerManager;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
-import net.minecraft.util.UserCache;
 
 import java.util.Collection;
+import java.util.Optional;
 import java.util.UUID;
 
 
@@ -32,6 +37,8 @@ public class PartyService {
     private static void registerCommands(CommandDispatcher<ServerCommandSource> commandDispatcher) {
         commandDispatcher.register(
             CommandManager.literal("party").requires(ServerCommandSource::isExecutedByPlayer)
+                .executes(PartyService::help)
+                .then(CommandManager.literal("help").executes(PartyService::help))
 
                 .then(CommandManager.literal("list").executes(PartyService::listPlayers))
 
@@ -42,8 +49,22 @@ public class PartyService {
                 )
 
                 .then(CommandManager.literal("accept")
-                    .then(CommandManager.argument("player", GameProfileArgumentType.gameProfile())
-                            .executes(ctx -> acceptInvite(ctx, GameProfileArgumentType.getProfileArgument(ctx, "player")))
+                    /*.then(CommandManager.argument("player", GameProfileArgumentType.gameProfile())
+                            .executes(ctx -> {
+                                Collection<GameProfile> gameProfiles = GameProfileArgumentType.getProfileArgument(ctx, "player");
+                                gameProfiles.forEach(profile -> acceptInvite(ctx, profile.getId()));
+                                return 0;
+                            })
+                    )*/
+
+                    .then(CommandManager.argument("uuid", StringArgumentType.string())
+                            .executes(ctx -> {
+                                try {
+                                    UUID uuid = UUID.fromString(StringArgumentType.getString(ctx, "uuid"));
+                                    acceptInvite(ctx, uuid);
+                                } catch (Exception ignore) {}
+                                return 0;
+                            })
                     )
                 )
 
@@ -51,38 +72,47 @@ public class PartyService {
         );
     }
 
+    private static int help(CommandContext<ServerCommandSource> context) {
+        ServerPlayerEntity exec = context.getSource().getPlayer();
+        if (exec == null) return 1;
+
+        exec.sendMessage(ChatUtil.newMessage("The party system keeps you and your friends together when the game starts.\nTo learn more, join our <hover:show_text:'<color:#7289da>join now!</color>'><click:open_url:'https://discord.gg/2MUxFaaekP'><color:#7289da>discord</color></click></hover>, or read the <color:#b3816d><hover:show_text:'<color:#b3816d>check your inventory</color>'>book</hover></color>."));
+        return 0;
+    }
+
     private static int listPlayers(CommandContext<ServerCommandSource> context) {
         ServerPlayerEntity exec = context.getSource().getPlayer();
         if (exec == null) return 1;
 
         Party party = lookupParty(exec.getUuid());
-        if (party == null) return 1;
+        if (party == null) {
+            ChatUtil.ERROR(exec, "You are not in a party!");
+            return 1;
+        }
 
-        exec.sendMessage(Text.of("Party Players ----------"));
-
-        PlayerManager playerManager = server.getPlayerManager();
-        UserCache userCache = server.getUserCache();
-        if (userCache == null) return 1;
+        StringBuilder builder = new StringBuilder();
+        builder.append("<b><color:#b5b5b5>Party Players -----</color></b>\n");
 
         party.getMembers().forEach(member -> {
-            userCache.getByUuid(member).ifPresent(gameProfile -> {
+            Reincarnaria.userCache.getByUuid(member).ifPresent(gameProfile -> {
                 String out = gameProfile.getName();
-                if (member.equals(party.getLeader())) out += " (Leader): ";
+                if (member.equals(party.getLeader())) out += " <i>(leader)</i>: ";
                 else out += ": ";
 
-                if (playerManager.getPlayer(member) != null) out += "Online";
-                else out += "Offline";
-                exec.sendMessage(Text.of(out));
+                if (Reincarnaria.playerManager.getPlayer(member) != null) out += "<color:#5ec9c1>Online</color>";
+                else out += "<color:#b5b5b5>Offline</color>";
+                builder.append(out).append("\n");
             });
         });
 
-        exec.sendMessage(Text.of(""));
-        exec.sendMessage(Text.of("Invited Players ---------"));
+        builder.append("\n").append("<b><color:#b5b5b5>Invited Players ----</color></b>\n");
 
         party.getInviteNames().forEach(invite -> {
-            exec.sendMessage(Text.of(invite + ": Pending"));
+            builder.append(invite).append(": <color:#dbae1c>Pending</color>\n");
         });
 
+        Component component = MiniMessage.miniMessage().deserialize(builder.toString());
+        exec.sendMessage(component);
         return 0;
     }
 
@@ -97,46 +127,52 @@ public class PartyService {
 
         for (GameProfile profile : profiles) {
             if (profile.getId() == exec.getUuid()) {
-                exec.sendMessage(Text.of("You cannot invite yourself to your own party!"));
+                ChatUtil.ERROR(exec, "You cannot invite yourself to your own party!");
                 continue;
             }
 
             if (lookupParty(profile.getId()) != null) {
-                exec.sendMessage(Text.of("That player is already in a party!"));
+                ChatUtil.ERROR(exec, "That player is already in a party!");
                 continue;
             }
 
             party.invite(profile.getName(), profile.getId());
             addToPartyLookup(exec.getUuid(), party);
             savePartyData(party);
-            exec.sendMessage(Text.of("Invited: " + profile.getName() + " to your party!"));
+            exec.sendMessage(ChatUtil.newMessage("Invite sent to <color:#d695ff>" + profile.getName() + "</color>!"));
+
+            Component message = ChatUtil.newMessage("<i><color:#d695ff><source></color></i> sent you a party invite!\n<color:#00d49e>-> <click:run_command:'/party accept " + profile.getId() + "'><hover:show_text:'/party accept " + profile.getId() + "'><u>CLICK TO ACCEPT</u></hover></click> <-</color>");
+            JsonObject meta = new JsonObject();
+            meta.addProperty("source", exec.getUuid().toString());
+            Pigeon.send(profile.getId(), message, meta, SoundEvents.ENTITY_EXPERIENCE_ORB_PICKUP);
         }
         return 0;
     }
 
-    private static int acceptInvite(CommandContext<ServerCommandSource> context, Collection<GameProfile> profiles) {
+    private static int acceptInvite(CommandContext<ServerCommandSource> context, UUID player) {
         ServerPlayerEntity exec = context.getSource().getPlayer();
-        if (exec == null || profiles.size() > 1) return 1;
+        if (exec == null) return 1;
 
-        UserCache userCache = server.getUserCache();
-        if (userCache == null) return 1;
+        Party party = lookupParty(player);
+        if (party == null) {
+            ChatUtil.ERROR(exec, "No Invite found from that player!");
+            return 1;
+        }
 
-        profiles.forEach(profile -> {
-            Party party = lookupParty(profile.getId());
-            if (party == null) {
-                exec.sendMessage(Text.of("No Invite found from that player!"));
-                return;
-            }
+        if (party.accept(exec.getUuid())) {
+            addToPartyLookup(exec.getUuid(), party);
+            savePartyData(party);
+            Reincarnaria.userCache.getByUuid(player).ifPresent(gameProfile -> {
+                exec.sendMessage(ChatUtil.newMessage("You are now partied with <color:#d695ff>" + gameProfile.getName() + "</color>!\n<color:#79baff><click:run_command:'/party list'><hover:show_text:'/party list'>Check it out!</hover></click></color>"));
 
-            if (party.accept(exec.getUuid())) {
-                addToPartyLookup(exec.getUuid(), party);
-                savePartyData(party);
-                userCache.getByUuid(profile.getId()).ifPresent(gameProfile -> exec.sendMessage(Text.of("Accepted " + gameProfile.getName() + "'s Invite!")));
-                return;
-            }
-            exec.sendMessage(Text.of("No Invite found from that player!"));
-        });
-
+                Component message = ChatUtil.newMessage("<color:#d695ff><source></color> accepted your invite!");
+                JsonObject meta = new JsonObject();
+                meta.addProperty("source", exec.getUuid().toString());
+                Pigeon.send(gameProfile.getId(), message, meta, SoundEvents.ENTITY_EXPERIENCE_ORB_PICKUP);
+            });
+            return 1;
+        }
+        ChatUtil.ERROR(exec, "No Invite found from that player!");
         return 0;
     }
 
@@ -144,18 +180,15 @@ public class PartyService {
         ServerPlayerEntity exec = context.getSource().getPlayer();
         if (exec == null) return 1;
 
-        UserCache userCache = server.getUserCache();
-        if (userCache == null) return 1;
-
         Party party = lookupParty(exec.getUuid());
         if (party == null) {
-            exec.sendMessage(Text.of("You aren't in a party!"));
+            ChatUtil.ERROR(exec, "You aren't in a party!");
             return 1;
         }
 
         party.leave(exec.getUuid());
         partyLookupTable.drop(exec.getUuid());
-        userCache.getByUuid(exec.getUuid()).ifPresent(gameProfile -> exec.sendMessage(Text.of("You left " + gameProfile.getName() + "'s party.")));
+        Reincarnaria.userCache.getByUuid(party.getLeader()).ifPresent(gameProfile -> exec.sendMessage(ChatUtil.newMessage("You left <color:#d695ff>" + gameProfile.getName() + "'s</color> party.")));
 
         if (exec.getUuid() == party.getLeader() && !party.getMembers().isEmpty()) {
             party.setLeader(party.getMembers().get(0));
@@ -193,5 +226,16 @@ public class PartyService {
 
         partyLookupTable = database.createTable("partyLookup").addColumn("partyId", SQLDataType.UUID).finish();
         partyDataTable = database.createTable("partyData").addColumn("partyData", SQLDataType.JSON).finish();
+
+        QuillEvents.PRE_SEND_NOTIFICATION.register((message) -> {
+            String source = message.getMetadata().getAsJsonObject().get("source").getAsString();
+            Optional<GameProfile> gameProfile = Reincarnaria.userCache.getByUuid(UUID.fromString(source));
+            if (gameProfile.isEmpty()) return false;
+
+            Component component = message.getComponent();
+            TextReplacementConfig config = TextReplacementConfig.builder().match("<source>").replacement(gameProfile.get().getName()).build();
+            message.setComponent(component.replaceText(config));
+            return true;
+        });
     }
 }

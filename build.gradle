@@ -10,6 +10,11 @@ repositories {
     maven { url 'https://maven.nucleoid.xyz' }
     maven { url 'https://jitpack.io' }
     maven { url "https://api.modrinth.com/maven" }
+       maven {
+       name = "sonatype-oss-snapshots1"
+       url = "https://s01.oss.sonatype.org/content/repositories/snapshots/"
+       mavenContent { snapshotsOnly() }
+   }
 }
 
 dependencies {
@@ -22,17 +27,22 @@ dependencies {
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
     //SQLib
-    modImplementation("maven.modrinth:sqlib:2.1.8")
-
-    //Dev
-    modImplementation("maven.modrinth:easy-eula:1.0.0")
-    // Vanish api
+    modImplementation "maven.modrinth:sqlib:2.1.8"
+    //Quill
+    modImplementation 'maven.modrinth:quill:1.0.4'
+    modImplementation("com.github.P03W:Microconfig:2.2.1")
+    //Vanish api
     modImplementation "me.lucko:fabric-permissions-api:0.2-SNAPSHOT"
     modImplementation "eu.pb4:placeholder-api:2.2.0+1.20.2"
     modImplementation "com.github.MrNavaStar:Vanish:1.20~stable-SNAPSHOT"
     modImplementation "eu.pb4:player-data-api:0.3.0+1.20.2"
     implementation("com.github.LlamaLad7:MixinExtras:0.1.1")
     annotationProcessor("com.github.LlamaLad7:MixinExtras:0.1.1")
+    //Adventure
+    modImplementation include("net.kyori:adventure-platform-fabric:5.10.0")
+
+    //Dev
+    modImplementation("maven.modrinth:easy-eula:1.0.0")
 }
 
 processResources {

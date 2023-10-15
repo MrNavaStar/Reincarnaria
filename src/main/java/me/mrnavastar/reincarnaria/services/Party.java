@@ -1,5 +1,12 @@
 package me.mrnavastar.reincarnaria.services;
 
+import com.google.gson.JsonObject;
+import me.electrobrine.quill_notifications.api.Pigeon;
+import me.mrnavastar.reincarnaria.util.ChatUtil;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.minecraft.sound.SoundEvents;
+
 import java.util.ArrayList;
 import java.util.UUID;
 
@@ -32,6 +39,8 @@ public class Party {
         invitesUuids.remove(index);
         inviteNames.remove(index);
         members.add(uuid);
+
+        Component message = ChatUtil.newMessage("");
         return true;
     }
 
