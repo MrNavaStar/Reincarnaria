@@ -1,18 +1,16 @@
 package me.mrnavastar.reincarnaria.services;
 
-import com.google.gson.JsonObject;
-import me.electrobrine.quill_notifications.api.Pigeon;
+import lombok.Getter;
 import me.mrnavastar.reincarnaria.util.ChatUtil;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.minimessage.MiniMessage;
-import net.minecraft.sound.SoundEvents;
 
 import java.util.ArrayList;
 import java.util.UUID;
 
+@Getter
 public class Party {
 
-    private final UUID partyId = UUID.randomUUID();
+    private final UUID id = UUID.randomUUID();
     private UUID leader;
     private final ArrayList<UUID> members = new ArrayList<>();
     private final ArrayList<UUID> invitesUuids = new ArrayList<>();
@@ -46,25 +44,5 @@ public class Party {
 
     public void leave(UUID uuid) {
         members.remove(uuid);
-    }
-
-    public UUID getPartyId() {
-        return partyId;
-    }
-
-    public UUID getLeader() {
-        return leader;
-    }
-
-    public ArrayList<UUID> getMembers() {
-        return members;
-    }
-
-    public ArrayList<UUID> getInvitesUuids() {
-        return invitesUuids;
-    }
-
-    public ArrayList<String> getInviteNames() {
-        return inviteNames;
     }
 }

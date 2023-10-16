@@ -1,5 +1,6 @@
 package me.mrnavastar.reincarnaria.services;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.mojang.authlib.GameProfile;
 import com.mojang.brigadier.CommandDispatcher;
@@ -15,7 +16,6 @@ import mrnavastar.sqlib.database.Database;
 import mrnavastar.sqlib.sql.SQLDataType;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextReplacementConfig;
-import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.minecraft.command.argument.GameProfileArgumentType;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.command.CommandManager;
@@ -23,6 +23,7 @@ import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.sound.SoundEvents;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Optional;
 import java.util.UUID;
@@ -68,6 +69,8 @@ public class PartyService {
                     )
                 )
 
+                .then(CommandManager.literal("pending").executes(PartyService::pending))
+
                 .then(CommandManager.literal("leave").executes(PartyService::leave))
         );
     }
@@ -90,9 +93,7 @@ public class PartyService {
             return 1;
         }
 
-        StringBuilder builder = new StringBuilder();
-        builder.append("<b><color:#b5b5b5>Party Players -----</color></b>\n");
-
+        exec.sendMessage(ChatUtil.newMessage("<b><color:#b5b5b5>Party Players -----</color></b>"));
         party.getMembers().forEach(member -> {
             Reincarnaria.userCache.getByUuid(member).ifPresent(gameProfile -> {
                 String out = gameProfile.getName();
@@ -101,18 +102,13 @@ public class PartyService {
 
                 if (Reincarnaria.playerManager.getPlayer(member) != null) out += "<color:#5ec9c1>Online</color>";
                 else out += "<color:#b5b5b5>Offline</color>";
-                builder.append(out).append("\n");
+                exec.sendMessage(ChatUtil.newMessage(out));
             });
         });
 
-        builder.append("\n").append("<b><color:#b5b5b5>Invited Players ----</color></b>\n");
-
-        party.getInviteNames().forEach(invite -> {
-            builder.append(invite).append(": <color:#dbae1c>Pending</color>\n");
-        });
-
-        Component component = MiniMessage.miniMessage().deserialize(builder.toString());
-        exec.sendMessage(component);
+        if (party.getInviteNames().isEmpty()) return 1;
+        exec.sendMessage(ChatUtil.newMessage("<b><color:#b5b5b5>Invited Players ----</color></b>"));
+        party.getInviteNames().forEach(invite -> exec.sendMessage(ChatUtil.newMessage(invite + ": <color:#dbae1c>Pending</color>")));
         return 0;
     }
 
@@ -120,7 +116,9 @@ public class PartyService {
         ServerPlayerEntity exec = context.getSource().getPlayer();
         if (exec == null || profiles.size() > 1) return 1;
 
+        System.out.println(exec.getUuid());
         Party party = lookupParty(exec.getUuid());
+        System.out.println("here");
         if (party == null) {
             party = new Party(exec.getUuid());
         }
@@ -131,6 +129,11 @@ public class PartyService {
                 continue;
             }
 
+            if (party.getInvitesUuids().contains(profile.getId())) {
+                ChatUtil.ERROR(exec, "You have already invited " + profile.getName() + "!");
+                continue;
+            }
+
             if (lookupParty(profile.getId()) != null) {
                 ChatUtil.ERROR(exec, "That player is already in a party!");
                 continue;
@@ -138,9 +141,10 @@ public class PartyService {
 
             party.invite(profile.getName(), profile.getId());
             addToPartyLookup(exec.getUuid(), party);
+            addInviteLookup(profile.getId(), exec.getUuid(), party);
             savePartyData(party);
-            exec.sendMessage(ChatUtil.newMessage("Invite sent to <color:#d695ff>" + profile.getName() + "</color>!"));
 
+            exec.sendMessage(ChatUtil.newMessage("Invite sent to <color:#d695ff>" + profile.getName() + "</color>!"));
             Component message = ChatUtil.newMessage("<i><color:#d695ff><source></color></i> sent you a party invite!\n<color:#00d49e>-> <click:run_command:'/party accept " + profile.getId() + "'><hover:show_text:'/party accept " + profile.getId() + "'><u>CLICK TO ACCEPT</u></hover></click> <-</color>");
             JsonObject meta = new JsonObject();
             meta.addProperty("source", exec.getUuid().toString());
@@ -149,14 +153,14 @@ public class PartyService {
         return 0;
     }
 
-    private static int acceptInvite(CommandContext<ServerCommandSource> context, UUID player) {
+    private static void acceptInvite(CommandContext<ServerCommandSource> context, UUID player) {
         ServerPlayerEntity exec = context.getSource().getPlayer();
-        if (exec == null) return 1;
+        if (exec == null) return;
 
         Party party = lookupParty(player);
         if (party == null) {
             ChatUtil.ERROR(exec, "No Invite found from that player!");
-            return 1;
+            return;
         }
 
         if (party.accept(exec.getUuid())) {
@@ -164,15 +168,33 @@ public class PartyService {
             savePartyData(party);
             Reincarnaria.userCache.getByUuid(player).ifPresent(gameProfile -> {
                 exec.sendMessage(ChatUtil.newMessage("You are now partied with <color:#d695ff>" + gameProfile.getName() + "</color>!\n<color:#79baff><click:run_command:'/party list'><hover:show_text:'/party list'>Check it out!</hover></click></color>"));
-
                 Component message = ChatUtil.newMessage("<color:#d695ff><source></color> accepted your invite!");
                 JsonObject meta = new JsonObject();
                 meta.addProperty("source", exec.getUuid().toString());
                 Pigeon.send(gameProfile.getId(), message, meta, SoundEvents.ENTITY_EXPERIENCE_ORB_PICKUP);
             });
-            return 1;
+            return;
         }
         ChatUtil.ERROR(exec, "No Invite found from that player!");
+    }
+
+    private static int pending(CommandContext<ServerCommandSource> context) {
+        ServerPlayerEntity exec = context.getSource().getPlayer();
+        if (exec == null) return 1;
+
+        ArrayList<Invite> invites = getInvites(exec.getUuid());
+        if (invites == null) return 1;
+
+        exec.sendMessage(ChatUtil.newMessage("<b><color:#b5b5b5>Pending Invites ----</color></b>"));
+        invites.forEach(invite -> {
+            Party party = getParty(invite.getParty());
+            if (party == null) return;
+
+            GameProfile invitor = invite.getInvitorProfile();
+            if (invitor == null) return;
+
+            exec.sendMessage(ChatUtil.newMessage(invitor.getName() + "    <color:#00d49e><click:run_command:'/party accept " + invite.getInvitor() + "'>ACCEPT</click></color>"));
+        });
         return 0;
     }
 
@@ -197,25 +219,53 @@ public class PartyService {
         return 0;
     }
 
-    private static Party lookupParty(UUID player) {
-        DataContainer playerData = partyLookupTable.get(player);
-        if (playerData == null) return null;
-
-        UUID partyId = playerData.getUUID("partyId");
-        DataContainer partyData = partyDataTable.get(partyId);
+    private static Party getParty(UUID id) {
+        DataContainer partyData = partyDataTable.get(id);
         if (partyData == null) return null;
 
         return Reincarnaria.GSON.fromJson(partyData.getJson("partyData"), Party.class);
     }
 
+    private static Party lookupParty(UUID player) {
+        DataContainer playerData = partyLookupTable.get(player);
+        if (playerData == null) return null;
+
+        return getParty(playerData.getUUID("partyId"));
+    }
+
     private static void addToPartyLookup(UUID player, Party party) {
-        DataContainer playerData = partyLookupTable.createDataContainer(player);
-        playerData.put("partyId", party.getPartyId());
+        DataContainer playerData = partyLookupTable.get(player);
+        if (playerData == null) playerData = partyLookupTable.createDataContainer(player);
+
+        playerData.put("partyId", party.getId());
+    }
+
+    private static void addInviteLookup(UUID player, UUID invitor, Party party) {
+        DataContainer playerData = partyLookupTable.get(player);
+        if (playerData == null) playerData = partyLookupTable.createDataContainer(player);
+
+        JsonArray invites = (JsonArray) playerData.getJson("invites");
+        if (invites == null) invites = new JsonArray();
+
+        invites.add(Reincarnaria.GSON.toJsonTree(new Invite(invitor, party.getId())));
+        playerData.put("invites", invites);
+    }
+
+    private static ArrayList<Invite> getInvites(UUID player) {
+        DataContainer playerData = partyLookupTable.get(player);
+        if (playerData == null) return null;
+
+        JsonArray invitesData = (JsonArray) playerData.getJson("invites");
+        if (invitesData == null) return null;
+
+        ArrayList<Invite> invites = new ArrayList<>();
+        invitesData.forEach(invite -> invites.add(Reincarnaria.GSON.fromJson(invite, Invite.class)));
+        return invites;
     }
 
     private static void savePartyData(Party party) {
-        DataContainer partyData = partyDataTable.get(party.getPartyId());
-        if (partyData == null) partyData = partyDataTable.createDataContainer(party.getPartyId());
+        DataContainer partyData = partyDataTable.get(party.getId());
+        if (partyData == null) partyData = partyDataTable.createDataContainer(party.getId());
 
         partyData.put("partyData", Reincarnaria.GSON.toJsonTree(party));
     }
@@ -224,7 +274,7 @@ public class PartyService {
         server = mcServer;
         registerCommands(server.getCommandFunctionManager().getDispatcher());
 
-        partyLookupTable = database.createTable("partyLookup").addColumn("partyId", SQLDataType.UUID).finish();
+        partyLookupTable = database.createTable("partyLookup").addColumn("partyId", SQLDataType.UUID).addColumn("invites", SQLDataType.JSON).finish();
         partyDataTable = database.createTable("partyData").addColumn("partyData", SQLDataType.JSON).finish();
 
         QuillEvents.PRE_SEND_NOTIFICATION.register((message) -> {
