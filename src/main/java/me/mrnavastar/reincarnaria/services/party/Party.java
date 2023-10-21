@@ -1,8 +1,6 @@
-package me.mrnavastar.reincarnaria.services;
+package me.mrnavastar.reincarnaria.services.party;
 
 import lombok.Getter;
-import me.mrnavastar.reincarnaria.util.ChatUtil;
-import net.kyori.adventure.text.Component;
 
 import java.util.ArrayList;
 import java.util.UUID;
@@ -21,28 +19,37 @@ public class Party {
         members.add(leader);
     }
 
-    public void setLeader(UUID leader) {
-        this.leader = leader;
-    }
-
     public void invite(String name, UUID uuid) {
         inviteNames.add(name);
         invitesUuids.add(uuid);
     }
 
-    public boolean accept(UUID uuid) {
+    public boolean removeInvite(UUID uuid) {
+        System.out.println(uuid);
         int index = invitesUuids.indexOf(uuid);
         if (index == -1) return false;
 
         invitesUuids.remove(index);
         inviteNames.remove(index);
-        members.add(uuid);
+        return true;
+    }
 
-        Component message = ChatUtil.newMessage("");
+    public boolean accept(UUID uuid) {
+        if (!removeInvite(uuid)) return false;
+        members.add(uuid);
         return true;
     }
 
     public void leave(UUID uuid) {
         members.remove(uuid);
+        if (uuid.equals(leader) && !isEmpty()) leader = members.get(0);
+    }
+
+    public int getSize() {
+        return members.size();
+    }
+
+    public boolean isEmpty() {
+        return members.isEmpty();
     }
 }

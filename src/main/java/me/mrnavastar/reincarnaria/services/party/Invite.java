@@ -1,4 +1,4 @@
-package me.mrnavastar.reincarnaria.services;
+package me.mrnavastar.reincarnaria.services.party;
 
 import com.mojang.authlib.GameProfile;
 import lombok.Getter;

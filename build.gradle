@@ -6,6 +6,10 @@ plugins {
 version = project.mod_version
 group = project.maven_group
 
+loom {
+	accessWidenerPath = file("src/main/resources/reincarnaria.aw")
+}
+
 repositories {
     maven { url 'https://maven.nucleoid.xyz' }
     maven { url 'https://jitpack.io' }

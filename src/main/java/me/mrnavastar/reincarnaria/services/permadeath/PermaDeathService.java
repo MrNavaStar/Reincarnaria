@@ -1,8 +1,8 @@
-package me.mrnavastar.reincarnaria.services;
+package me.mrnavastar.reincarnaria.services.permadeath;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.context.CommandContext;
-//import me.drex.vanish.api.VanishAPI;
+import me.drex.vanish.api.VanishAPI;
 import me.mrnavastar.reincarnaria.Reincarnaria;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.minecraft.command.argument.EntityArgumentType;
@@ -23,7 +23,7 @@ import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import net.minecraft.world.GameMode;
 
-public class DeadPlayerService {
+public class PermaDeathService {
 
     private static void registerCommands(CommandDispatcher<ServerCommandSource> commandDispatcher) {
         commandDispatcher.register(
@@ -41,16 +41,16 @@ public class DeadPlayerService {
     }
 
     private static int revivePlayer(CommandContext<ServerCommandSource> context, ServerPlayerEntity player) {
-        /*if (!VanishAPI.isVanished(player)) {
+        if (!VanishAPI.isVanished(player)) {
             MutableText text = (MutableText) Text.of(player.getName().getString() + " is not dead!");
             text.formatted(Formatting.RED);
             context.getSource().sendMessage(text);
             return 1;
-        }*/
+        }
 
         player.changeGameMode(GameMode.SURVIVAL);
         player.clearStatusEffects();
-        //VanishAPI.setVanish(player, false);
+        VanishAPI.setVanish(player, false);
 
         MutableText text = (MutableText) Text.of(player.getName().getString() + " rose from the dead!");
         text.formatted(Formatting.GREEN);
@@ -95,7 +95,7 @@ public class DeadPlayerService {
                 player.addStatusEffect(new StatusEffectInstance(StatusEffects.SATURATION, -1, 99, true, false));
 
                 player.changeGameMode(GameMode.ADVENTURE);
-                //VanishAPI.setVanish(player, true);
+                VanishAPI.setVanish(player, true);
                 return false;
             }
             return true;
