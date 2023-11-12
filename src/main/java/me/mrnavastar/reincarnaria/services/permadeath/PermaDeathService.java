@@ -2,16 +2,21 @@ package me.mrnavastar.reincarnaria.services.permadeath;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.BoolArgumentType;
-import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
+import lombok.Getter;
 import me.drex.vanish.api.VanishAPI;
 import me.mrnavastar.reincarnaria.Reincarnaria;
 import me.mrnavastar.reincarnaria.util.ChatUtil;
+import me.mrnavastar.reincarnaria.util.HeadUtils;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.minecraft.command.argument.EntityArgumentType;
 import net.minecraft.entity.ExperienceOrbEntity;
+import net.minecraft.entity.ItemEntity;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.nbt.NbtCompound;
 import net.minecraft.network.packet.s2c.play.TitleS2CPacket;
 import net.minecraft.particle.ParticleTypes;
 import net.minecraft.server.MinecraftServer;
@@ -25,8 +30,11 @@ import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import net.minecraft.world.GameMode;
 
+import java.util.concurrent.Executors;
+
 public class PermaDeathService {
 
+    @Getter
     private static boolean enabled = false;
 
     private static void registerCommands(CommandDispatcher<ServerCommandSource> commandDispatcher) {
@@ -57,8 +65,8 @@ public class PermaDeathService {
         if (exec == null) return 1;
 
         enabled = !b;
-        Reincarnaria.playerManager.getPlayerList().forEach(player -> player.sendMessage(ChatUtil.newMessage("<hover:show_text:'oh no! anyway...'><i><color:#ffda33><color:#ff922b><color:#ffc933><b>GRACE PERIOD HAS ENDED!</b></color></color></color></i></hover>")));
-        return 1;
+        if (enabled) Reincarnaria.playerManager.getPlayerList().forEach(player -> player.sendMessage(ChatUtil.newMessage("<hover:show_text:'oh no! anyway...'><i><color:#ffda33><color:#ff922b><color:#ffc933><b>GRACE PERIOD HAS ENDED!</b></color></color></color></i></hover>")));
+        return 0;
     }
 
     private static int revivePlayer(CommandContext<ServerCommandSource> context, ServerPlayerEntity player) {
@@ -88,7 +96,10 @@ public class PermaDeathService {
         // On Player Death
         ServerLivingEntityEvents.ALLOW_DEATH.register((entity, damageSource, damageAmount) -> {
             if (entity instanceof ServerPlayerEntity player) {
-                if (!enabled) return true;
+                if (!enabled) {
+
+                    return true;
+                }
 
                 Reincarnaria.playerManager.getPlayerList().forEach(p -> {
                     p.sendMessage(damageSource.getDeathMessage(player));
@@ -106,9 +117,19 @@ public class PermaDeathService {
                 player.getInventory().dropAll();
                 player.setHealth(20);
                 player.getHungerManager().setFoodLevel(20);
-                player.getServerWorld().spawnEntity(new ExperienceOrbEntity(player.getServerWorld(), player.getX(), player.getY(), player.getZ(), player.getXpToDrop()));
+                player.getServerWorld().spawnEntity(new ExperienceOrbEntity(player.getServerWorld(), player.getX(), player.getY(), player.getZ(), player.experienceLevel));
                 player.setExperiencePoints(0);
                 player.setExperienceLevel(0);
+
+                Executors.newSingleThreadExecutor().execute(() -> {
+                    ItemStack skull = Items.PLAYER_HEAD.getDefaultStack();
+                    NbtCompound compound = HeadUtils.nbtFromProfile(player.getGameProfile());
+                    skull.setNbt(compound);
+                    if (damageSource.getAttacker() instanceof ServerPlayerEntity attacker) {
+                        skull.setNbt(HeadUtils.addLore(compound, attacker));
+                    }
+                    player.getServerWorld().spawnEntity(new ItemEntity(player.getServerWorld(), player.getX(), player.getY(), player.getZ(), skull));
+                });
 
                 player.addStatusEffect(new StatusEffectInstance(StatusEffects.BLINDNESS, 100, 10, true, false));
                 player.addStatusEffect(new StatusEffectInstance(StatusEffects.GLOWING, -1, 0, true, false));

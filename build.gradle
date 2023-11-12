@@ -38,7 +38,7 @@ dependencies {
     //Vanish api
     modImplementation "me.lucko:fabric-permissions-api:0.2-SNAPSHOT"
     modImplementation "eu.pb4:placeholder-api:2.2.0+1.20.2"
-    modImplementation "com.github.MrNavaStar:Vanish:1.20~stable-SNAPSHOT"
+    include(modImplementation(files("vanish-1.4.3+1.20.2.jar")))
     modImplementation "eu.pb4:player-data-api:0.3.0+1.20.2"
     implementation("com.github.LlamaLad7:MixinExtras:0.1.1")
     annotationProcessor("com.github.LlamaLad7:MixinExtras:0.1.1")
