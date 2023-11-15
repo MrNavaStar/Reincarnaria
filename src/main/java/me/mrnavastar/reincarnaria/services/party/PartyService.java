@@ -33,7 +33,7 @@ import java.util.UUID;
 
 public class PartyService {
 
-    private static Table partyLookupTable;
+    private static Table playerData;
     private static Table partyDataTable;
 
     private static void registerCommands(CommandDispatcher<ServerCommandSource> commandDispatcher) {
@@ -88,7 +88,7 @@ public class PartyService {
         ServerPlayerEntity exec = context.getSource().getPlayer();
         if (exec == null) return 1;
 
-        Party party = lookupParty(partyLookupTable, exec.getUuid());
+        Party party = lookupParty(playerData, exec.getUuid());
         if (party == null) {
             ChatUtil.ERROR(exec, "You are not in a party!");
             return 1;
@@ -117,7 +117,7 @@ public class PartyService {
         ServerPlayerEntity exec = context.getSource().getPlayer();
         if (exec == null || profiles.size() > 1) return 1;
 
-        Party party = lookupParty(partyLookupTable, exec.getUuid());
+        Party party = lookupParty(playerData, exec.getUuid());
         if (party == null) {
             party = new Party(exec.getUuid());
         }
@@ -133,7 +133,7 @@ public class PartyService {
                 continue;
             }
 
-            if (lookupParty(partyLookupTable, profile.getId()) != null) {
+            if (lookupParty(playerData, profile.getId()) != null) {
                 ChatUtil.ERROR(exec, "That player is already in a party!");
                 continue;
             }
@@ -156,12 +156,12 @@ public class PartyService {
         ServerPlayerEntity exec = context.getSource().getPlayer();
         if (exec == null) return;
 
-        if (lookupParty(partyLookupTable, exec.getUuid()) != null) {
+        if (lookupParty(playerData, exec.getUuid()) != null) {
             ChatUtil.ERROR(exec, "You must leave your current party before you can accept a new invite!");
             return;
         }
 
-        Party party = lookupParty(partyLookupTable, player);
+        Party party = lookupParty(playerData, player);
         if (party == null) {
             ChatUtil.ERROR(exec, "No Invite found from that player!");
             return;
@@ -211,7 +211,7 @@ public class PartyService {
         ServerPlayerEntity exec = context.getSource().getPlayer();
         if (exec == null) return 1;
 
-        Party party = lookupParty(partyLookupTable, exec.getUuid());
+        Party party = lookupParty(playerData, exec.getUuid());
         if (party == null) {
             ChatUtil.ERROR(exec, "You aren't in a party!");
             return 1;
@@ -220,7 +220,7 @@ public class PartyService {
         party.leave(exec.getUuid());
         Reincarnaria.userCache.getByUuid(party.getLeader()).ifPresent(gameProfile -> exec.sendMessage(ChatUtil.newMessage("You left <color:#d695ff>" + gameProfile.getName() + "'s</color> party.")));
 
-        partyLookupTable.drop(exec.getUuid());
+        playerData.drop(exec.getUuid());
         if (party.isEmpty()) partyDataTable.drop(party.getId());
         else savePartyData(party);
         return 0;
@@ -244,15 +244,15 @@ public class PartyService {
     }
 
     private static void addToPartyLookup(UUID player, Party party) {
-        DataContainer playerData = partyLookupTable.get(player);
-        if (playerData == null) playerData = partyLookupTable.createDataContainer(player);
+        DataContainer playerData = PartyService.playerData.get(player);
+        if (playerData == null) playerData = PartyService.playerData.createDataContainer(player);
 
         playerData.put("partyId", party.getId());
     }
 
     private static void addInviteLookup(UUID player, UUID invitor, Party party) {
-        DataContainer playerData = partyLookupTable.get(player);
-        if (playerData == null) playerData = partyLookupTable.createDataContainer(player);
+        DataContainer playerData = PartyService.playerData.get(player);
+        if (playerData == null) playerData = PartyService.playerData.createDataContainer(player);
 
         JsonArray invites = (JsonArray) playerData.getJson("invites");
         if (invites == null) invites = new JsonArray();
@@ -262,7 +262,7 @@ public class PartyService {
     }
 
     private static ArrayList<Invite> getInvites(UUID player) {
-        DataContainer playerData = partyLookupTable.get(player);
+        DataContainer playerData = PartyService.playerData.get(player);
         if (playerData == null) return null;
 
         JsonElement json = playerData.getJson("invites");
@@ -284,7 +284,7 @@ public class PartyService {
             savePartyData(party);
         });
 
-        DataContainer playerData = partyLookupTable.get(player);
+        DataContainer playerData = PartyService.playerData.get(player);
         if (playerData == null) return;
         playerData.put("invites", JsonNull.INSTANCE);
     }
@@ -299,7 +299,12 @@ public class PartyService {
     public static void init(MinecraftServer mcServer, Database database) {
         registerCommands(mcServer.getCommandFunctionManager().getDispatcher());
 
-        partyLookupTable = database.createTable("partyLookup").addColumn("partyId", SQLDataType.UUID).addColumn("invites", SQLDataType.JSON).finish();
+        playerData = database.createTable("playerData")
+                .addColumn("partyId", SQLDataType.UUID)
+                .addColumn("invites", SQLDataType.JSON)
+                .addColumn("spawnPoint", SQLDataType.BLOCKPOS)
+                .addColumn("teleported", SQLDataType.BOOL)
+                .finish();
         partyDataTable = database.createTable("partyData").addColumn("partyData", SQLDataType.JSON).finish();
 
         QuillEvents.PRE_SEND_NOTIFICATION.register((message) -> {

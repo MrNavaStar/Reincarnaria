@@ -20,15 +20,15 @@ public class Reincarnaria implements ModInitializer {
 
     @Override
     public void onInitialize() {
-        //Database database = new SQLiteDatabase(MOD_ID, "Reincarnaria", "config");
+        Database database = new SQLiteDatabase(MOD_ID, "Reincarnaria", "config");
 
         ServerLifecycleEvents.SERVER_STARTED.register(server -> {
             playerManager = server.getPlayerManager();
             userCache = server.getUserCache();
 
             PermaDeathService.init(server);
-            //PartyService.init(server, database);
-            //DistributionService.init(server, database);
+            PartyService.init(server, database);
+            DistributionService.init(server, database);
         });
     }
 }

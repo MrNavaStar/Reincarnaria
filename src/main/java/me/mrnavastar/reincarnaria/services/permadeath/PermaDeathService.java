@@ -96,10 +96,7 @@ public class PermaDeathService {
         // On Player Death
         ServerLivingEntityEvents.ALLOW_DEATH.register((entity, damageSource, damageAmount) -> {
             if (entity instanceof ServerPlayerEntity player) {
-                if (!enabled) {
-
-                    return true;
-                }
+                if (!enabled) return true;
 
                 Reincarnaria.playerManager.getPlayerList().forEach(p -> {
                     p.sendMessage(damageSource.getDeathMessage(player));

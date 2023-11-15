@@ -31,7 +31,7 @@ dependencies {
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
     //SQLib
-    modImplementation "maven.modrinth:sqlib:2.1.8"
+    modImplementation "maven.modrinth:sqlib:2.1.9"
     //Quill
     modImplementation 'maven.modrinth:quill:1.0.4'
     modImplementation("com.github.P03W:Microconfig:2.2.1")
