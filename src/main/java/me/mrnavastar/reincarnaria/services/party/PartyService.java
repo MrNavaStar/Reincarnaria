@@ -8,14 +8,16 @@ import com.mojang.authlib.GameProfile;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
+import me.electrobrine.quill_notifications.Notification;
+import me.electrobrine.quill_notifications.NotificationBuilder;
 import me.electrobrine.quill_notifications.api.Pigeon;
 import me.electrobrine.quill_notifications.api.QuillEvents;
 import me.mrnavastar.reincarnaria.Reincarnaria;
 import me.mrnavastar.reincarnaria.util.ChatUtil;
-import mrnavastar.sqlib.DataContainer;
-import mrnavastar.sqlib.Table;
-import mrnavastar.sqlib.database.Database;
-import mrnavastar.sqlib.sql.SQLDataType;
+import me.mrnavastar.sqlib.DataContainer;
+import me.mrnavastar.sqlib.SQLib;
+import me.mrnavastar.sqlib.Table;
+import me.mrnavastar.sqlib.sql.SQLDataType;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextReplacementConfig;
 import net.minecraft.command.argument.GameProfileArgumentType;
@@ -23,6 +25,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.sound.SoundEvent;
 import net.minecraft.sound.SoundEvents;
 
 import java.util.ArrayList;
@@ -51,14 +54,6 @@ public class PartyService {
                 )
 
                 .then(CommandManager.literal("accept")
-                    /*.then(CommandManager.argument("player", GameProfileArgumentType.gameProfile())
-                            .executes(ctx -> {
-                                Collection<GameProfile> gameProfiles = GameProfileArgumentType.getProfileArgument(ctx, "player");
-                                gameProfiles.forEach(profile -> acceptInvite(ctx, profile.getId()));
-                                return 0;
-                            })
-                    )*/
-
                     .then(CommandManager.argument("uuid", StringArgumentType.string())
                             .executes(ctx -> {
                                 try {
@@ -147,7 +142,13 @@ public class PartyService {
             Component message = ChatUtil.newMessage("<i><color:#d695ff><source></color></i> sent you a party invite!\n<color:#00d49e>-> <click:run_command:'/party accept " + exec.getUuid() + "'><u>CLICK TO ACCEPT</u></click> <-</color>");
             JsonObject meta = new JsonObject();
             meta.addProperty("source", exec.getUuid().toString());
-            Pigeon.send(profile.getId(), message, meta, SoundEvents.ENTITY_EXPERIENCE_ORB_PICKUP);
+            Notification notification = NotificationBuilder.Notification(profile.getId())
+                    .setMessage(message)
+                    .setMetadata(meta)
+                    .setSound(SoundEvents.ENTITY_EXPERIENCE_ORB_PICKUP)
+                    .build();
+
+            Pigeon.send(notification);
         }
         return 0;
     }
@@ -180,7 +181,14 @@ public class PartyService {
             Component message = ChatUtil.newMessage("<color:#d695ff><source></color> accepted your invite!");
             JsonObject meta = new JsonObject();
             meta.addProperty("source", exec.getUuid().toString());
-            Pigeon.send(gameProfile.getId(), message, meta, SoundEvents.ENTITY_EXPERIENCE_ORB_PICKUP);
+
+            Notification notification = NotificationBuilder.Notification(gameProfile.getId())
+                    .setMessage(message)
+                    .setMetadata(meta)
+                    .setSound(SoundEvents.ENTITY_EXPERIENCE_ORB_PICKUP)
+                    .build();
+
+            Pigeon.send(notification);
         });
     }
 
@@ -244,8 +252,7 @@ public class PartyService {
     }
 
     private static void addToPartyLookup(UUID player, Party party) {
-        DataContainer playerData = PartyService.playerData.get(player);
-        if (playerData == null) playerData = PartyService.playerData.createDataContainer(player);
+        DataContainer playerData = PartyService.playerData.getOrCreateDataContainer(player);
 
         playerData.put("partyId", party.getId());
     }
@@ -290,22 +297,20 @@ public class PartyService {
     }
 
     private static void savePartyData(Party party) {
-        DataContainer partyData = partyDataTable.get(party.getId());
-        if (partyData == null) partyData = partyDataTable.createDataContainer(party.getId());
-
+        DataContainer partyData = partyDataTable.getOrCreateDataContainer(party.getId());
         partyData.put("partyData", Reincarnaria.GSON.toJsonTree(party));
     }
 
-    public static void init(MinecraftServer mcServer, Database database) {
+    public static void init(MinecraftServer mcServer) {
         registerCommands(mcServer.getCommandFunctionManager().getDispatcher());
 
-        playerData = database.createTable("playerData")
+        playerData = SQLib.getDatabase().createTable(Reincarnaria.MOD_ID, "playerData")
                 .addColumn("partyId", SQLDataType.UUID)
                 .addColumn("invites", SQLDataType.JSON)
                 .addColumn("spawnPoint", SQLDataType.BLOCKPOS)
                 .addColumn("teleported", SQLDataType.BOOL)
                 .finish();
-        partyDataTable = database.createTable("partyData").addColumn("partyData", SQLDataType.JSON).finish();
+        partyDataTable = SQLib.getDatabase().createTable(Reincarnaria.MOD_ID, "partyData").addColumn("partyData", SQLDataType.JSON).finish();
 
         QuillEvents.PRE_SEND_NOTIFICATION.register((message) -> {
             String source = message.getMetadata().getAsJsonObject().get("source").getAsString();

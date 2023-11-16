@@ -21,6 +21,7 @@
   ],
   "depends": {
     "fabricloader": ">=${loader_version}",
-    "fabric": "*"
+    "fabric": "*",
+    "sqlib": ">=2.2.2"
   }
 }

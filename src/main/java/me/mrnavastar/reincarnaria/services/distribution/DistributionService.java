@@ -1,16 +1,15 @@
 package me.mrnavastar.reincarnaria.services.distribution;
 
 import com.mojang.brigadier.CommandDispatcher;
-import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import me.mrnavastar.reincarnaria.Reincarnaria;
 import me.mrnavastar.reincarnaria.services.party.Party;
 import me.mrnavastar.reincarnaria.util.ChatUtil;
-import mrnavastar.sqlib.DataContainer;
-import mrnavastar.sqlib.Table;
-import mrnavastar.sqlib.database.Database;
-import mrnavastar.sqlib.sql.SQLDataType;
+import me.mrnavastar.sqlib.DataContainer;
+import me.mrnavastar.sqlib.SQLib;
+import me.mrnavastar.sqlib.Table;
+import me.mrnavastar.sqlib.sql.SQLDataType;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.command.CommandManager;
@@ -18,7 +17,10 @@ import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.math.BlockPos;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.UUID;
 
 public class DistributionService {
 
@@ -52,8 +54,7 @@ public class DistributionService {
         if (exec == null) return 1;
 
         exec.sendMessage(ChatUtil.newMessage("Added: " + name));
-        DataContainer spawnPoint = spawnPoints.createDataContainer(name);
-        spawnPoint.put("pos", exec.getBlockPos());
+        spawnPoints.getOrCreateDataContainer(name).put("pos", exec.getBlockPos());
         return 0;
     }
 
@@ -149,8 +150,7 @@ public class DistributionService {
             index++;
 
             for (UUID player : team) {
-                DataContainer playerData = DistributionService.playerData.get(player);
-                if (playerData == null) playerData = DistributionService.playerData.createDataContainer(player);
+                DataContainer playerData = DistributionService.playerData.getOrCreateDataContainer(player);
 
                 playerData.put("teleported", false);
                 playerData.put("spawnPoint", container.getBlockPos("pos"));
@@ -161,17 +161,17 @@ public class DistributionService {
         return 0;
     }
 
-    public static void init(MinecraftServer mcServer, Database database) {
+    public static void init(MinecraftServer mcServer) {
         registerCommands(mcServer.getCommandFunctionManager().getDispatcher());
 
-        spawnPoints = database.createTable("spawnpoints").addColumn("pos", SQLDataType.BLOCKPOS).finish();
-        playerData = database.createTable("playerData")
+        spawnPoints = SQLib.getDatabase().createTable(Reincarnaria.MOD_ID, "spawnpoints").addColumn("pos", SQLDataType.BLOCKPOS).finish();
+        playerData = SQLib.getDatabase().createTable(Reincarnaria.MOD_ID, "playerData")
                 .addColumn("partyId", SQLDataType.UUID)
                 .addColumn("invites", SQLDataType.JSON)
                 .addColumn("spawnPoint", SQLDataType.BLOCKPOS)
                 .addColumn("teleported", SQLDataType.BOOL)
                 .finish();
-        partyDataTable = database.createTable("partyData").addColumn("partyData", SQLDataType.JSON).finish();
+        partyDataTable = SQLib.getDatabase().createTable(Reincarnaria.MOD_ID, "partyData").addColumn("partyData", SQLDataType.JSON).finish();
 
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
             ServerPlayerEntity player = handler.getPlayer();
@@ -181,6 +181,7 @@ public class DistributionService {
             playerData.put("teleported", true);
             BlockPos pos = playerData.getBlockPos("spawnPoint");
             player.teleport(pos.getX(), pos.getY(), pos.getZ());
+            player.setSpawnPoint(player.getSpawnPointDimension(), pos, player.getSpawnAngle(), true, false);
         });
     }
 }
