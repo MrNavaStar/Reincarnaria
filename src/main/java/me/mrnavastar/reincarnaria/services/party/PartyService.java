@@ -9,7 +9,7 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import me.electrobrine.quill_notifications.Notification;
-import me.electrobrine.quill_notifications.NotificationBuilder;
+import me.electrobrine.quill_notifications.api.NotificationBuilder;
 import me.electrobrine.quill_notifications.api.Pigeon;
 import me.electrobrine.quill_notifications.api.QuillEvents;
 import me.mrnavastar.reincarnaria.Reincarnaria;
@@ -25,7 +25,6 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.sound.SoundEvent;
 import net.minecraft.sound.SoundEvents;
 
 import java.util.ArrayList;
@@ -307,12 +306,13 @@ public class PartyService {
         playerData = SQLib.getDatabase().createTable(Reincarnaria.MOD_ID, "playerData")
                 .addColumn("partyId", SQLDataType.UUID)
                 .addColumn("invites", SQLDataType.JSON)
-                .addColumn("spawnPoint", SQLDataType.BLOCKPOS)
                 .addColumn("teleported", SQLDataType.BOOL)
                 .finish();
         partyDataTable = SQLib.getDatabase().createTable(Reincarnaria.MOD_ID, "partyData").addColumn("partyData", SQLDataType.JSON).finish();
 
         QuillEvents.PRE_SEND_NOTIFICATION.register((message) -> {
+            if (message.getMetadata() == null) return true;
+
             String source = message.getMetadata().getAsJsonObject().get("source").getAsString();
             Optional<GameProfile> gameProfile = Reincarnaria.userCache.getByUuid(UUID.fromString(source));
             if (gameProfile.isEmpty()) return false;

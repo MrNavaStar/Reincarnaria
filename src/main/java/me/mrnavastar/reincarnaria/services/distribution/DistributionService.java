@@ -1,8 +1,13 @@
 package me.mrnavastar.reincarnaria.services.distribution;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
+import me.electrobrine.quill_notifications.Notification;
+import me.electrobrine.quill_notifications.QuillNotifications;
+import me.electrobrine.quill_notifications.api.NotificationBuilder;
 import me.mrnavastar.reincarnaria.Reincarnaria;
 import me.mrnavastar.reincarnaria.services.party.Party;
 import me.mrnavastar.reincarnaria.util.ChatUtil;
@@ -10,22 +15,17 @@ import me.mrnavastar.sqlib.DataContainer;
 import me.mrnavastar.sqlib.SQLib;
 import me.mrnavastar.sqlib.Table;
 import me.mrnavastar.sqlib.sql.SQLDataType;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.math.BlockPos;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 public class DistributionService {
 
     private static Table spawnPoints;
-    private static Table playerData;
     private static Table partyDataTable;
 
     private static void registerCommands(CommandDispatcher<ServerCommandSource> commandDispatcher) {
@@ -86,13 +86,15 @@ public class DistributionService {
 
         ArrayList<UUID> singles = new ArrayList<>();
         Reincarnaria.userCache.load().forEach(entry -> singles.add(entry.getProfile().getId()));
+        Collections.shuffle(singles);
 
-        List<DataContainer> points = spawnPoints.getDataContainers().stream().toList();
+        List<DataContainer> points = spawnPoints.getDataContainers();
         if (points.isEmpty()) {
             ChatUtil.ERROR(exec, "No SpawnPoints Defined - Run /distribution addSpawn <name>");
             return 1;
         }
-        int maxTeams = spawnPoints.getIds().size();
+
+        int maxTeams = points.size();
         int maxTeamSize = Math.round((float) singles.size() / maxTeams);
 
         ArrayList<Party> parties = new ArrayList<>();
@@ -150,10 +152,24 @@ public class DistributionService {
             index++;
 
             for (UUID player : team) {
-                DataContainer playerData = DistributionService.playerData.getOrCreateDataContainer(player);
+                Reincarnaria.userCache.getByUuid(player).ifPresent(gameProfile -> {
+                    BlockPos spawn = container.getBlockPos("pos");
 
-                playerData.put("teleported", false);
-                playerData.put("spawnPoint", container.getBlockPos("pos"));
+                    for (Notification notification : QuillNotifications.getNotifications(player)) {
+                        if (notification.getMetadata() == null || !notification.getMetadata().getAsJsonObject().has("dist-service") || !notification.getMetadata().getAsJsonObject().get("dist-service").getAsString().equals("run")) continue;
+                        notification.cancel();
+                    }
+
+                    JsonObject meta = new JsonObject();
+                    meta.addProperty("dist-service", "run");
+                    NotificationBuilder.Notification(player)
+                        .setMetadata(meta)
+                        .setCommands(
+                            "tp " + gameProfile.getName() + " " + spawn.getX() + " " + spawn.getY() + " " + spawn.getZ(),
+                            "spawnpoint " + gameProfile.getName() + " " + spawn.getX() + " " + spawn.getY() + " " + spawn.getZ()
+                        )
+                        .send();
+                });
             }
         }
 
@@ -165,23 +181,6 @@ public class DistributionService {
         registerCommands(mcServer.getCommandFunctionManager().getDispatcher());
 
         spawnPoints = SQLib.getDatabase().createTable(Reincarnaria.MOD_ID, "spawnpoints").addColumn("pos", SQLDataType.BLOCKPOS).finish();
-        playerData = SQLib.getDatabase().createTable(Reincarnaria.MOD_ID, "playerData")
-                .addColumn("partyId", SQLDataType.UUID)
-                .addColumn("invites", SQLDataType.JSON)
-                .addColumn("spawnPoint", SQLDataType.BLOCKPOS)
-                .addColumn("teleported", SQLDataType.BOOL)
-                .finish();
         partyDataTable = SQLib.getDatabase().createTable(Reincarnaria.MOD_ID, "partyData").addColumn("partyData", SQLDataType.JSON).finish();
-
-        ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
-            ServerPlayerEntity player = handler.getPlayer();
-            DataContainer playerData = DistributionService.playerData.get(player.getUuid());
-            if (playerData == null || playerData.getBool("teleported")) return;
-
-            playerData.put("teleported", true);
-            BlockPos pos = playerData.getBlockPos("spawnPoint");
-            player.teleport(pos.getX(), pos.getY(), pos.getZ());
-            player.setSpawnPoint(player.getSpawnPointDimension(), pos, player.getSpawnAngle(), true, false);
-        });
     }
 }

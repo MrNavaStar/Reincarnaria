@@ -31,9 +31,9 @@ dependencies {
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
     //SQLib
-    modImplementation "maven.modrinth:sqlib:2.2.2"
+    modImplementation "maven.modrinth:sqlib:2.2.3"
     //Quill
-    modImplementation 'maven.modrinth:quill:1.1.1'
+    modImplementation 'maven.modrinth:quill:1.1.4'
     //Vanish api
     modImplementation "me.lucko:fabric-permissions-api:0.2-SNAPSHOT"
     modImplementation "eu.pb4:placeholder-api:2.2.0+1.20.2"
@@ -46,6 +46,7 @@ dependencies {
 
     //Dev
     modImplementation("maven.modrinth:easy-eula:1.0.0")
+    modImplementation(files 'wdmcf-1.0.2.jar')
     compileOnly 'org.projectlombok:lombok:1.18.28'
 	annotationProcessor 'org.projectlombok:lombok:1.18.28'
 }
