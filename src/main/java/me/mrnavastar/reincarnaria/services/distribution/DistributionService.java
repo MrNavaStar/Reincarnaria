@@ -1,6 +1,5 @@
 package me.mrnavastar.reincarnaria.services.distribution;
 
-import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -155,20 +154,27 @@ public class DistributionService {
                 Reincarnaria.userCache.getByUuid(player).ifPresent(gameProfile -> {
                     BlockPos spawn = container.getBlockPos("pos");
 
-                    for (Notification notification : QuillNotifications.getNotifications(player)) {
-                        if (notification.getMetadata() == null || !notification.getMetadata().getAsJsonObject().has("dist-service") || !notification.getMetadata().getAsJsonObject().get("dist-service").getAsString().equals("run")) continue;
-                        notification.cancel();
-                    }
+                    try {
 
-                    JsonObject meta = new JsonObject();
-                    meta.addProperty("dist-service", "run");
-                    NotificationBuilder.Notification(player)
-                        .setMetadata(meta)
-                        .setCommands(
-                            "tp " + gameProfile.getName() + " " + spawn.getX() + " " + spawn.getY() + " " + spawn.getZ(),
-                            "spawnpoint " + gameProfile.getName() + " " + spawn.getX() + " " + spawn.getY() + " " + spawn.getZ()
-                        )
-                        .send();
+                        for (Notification notification : QuillNotifications.getNotifications(player)) {
+                            if (notification.getMetadata() == null || !notification.getMetadata().getAsJsonObject().has("dist-service") || !notification.getMetadata().getAsJsonObject().get("dist-service").getAsString().equals("run"))
+                                continue;
+                            notification.cancel();
+                        }
+
+                        JsonObject meta = new JsonObject();
+                        meta.addProperty("dist-service", "run");
+                        NotificationBuilder.Notification(player)
+                                .setMessage(ChatUtil.newMessage("Welcome to the server! You can see where you are by checking out our <click:open_url:'https://arnaria.github.io/MapViewer/?pos=" + spawn.getX() + "," + spawn.getZ() + "'><blue>World Map</blue></click>."))
+                                .setMetadata(meta)
+                                .setCommands(
+                                        "tp " + gameProfile.getName() + " " + spawn.getX() + " " + spawn.getY() + " " + spawn.getZ(),
+                                        "spawnpoint " + gameProfile.getName() + " " + spawn.getX() + " " + spawn.getY() + " " + spawn.getZ()
+                                )
+                                .send();
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
                 });
             }
         }

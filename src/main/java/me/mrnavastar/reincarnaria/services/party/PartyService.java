@@ -306,15 +306,16 @@ public class PartyService {
         playerData = SQLib.getDatabase().createTable(Reincarnaria.MOD_ID, "playerData")
                 .addColumn("partyId", SQLDataType.UUID)
                 .addColumn("invites", SQLDataType.JSON)
-                .addColumn("teleported", SQLDataType.BOOL)
                 .finish();
         partyDataTable = SQLib.getDatabase().createTable(Reincarnaria.MOD_ID, "partyData").addColumn("partyData", SQLDataType.JSON).finish();
 
         QuillEvents.PRE_SEND_NOTIFICATION.register((message) -> {
             if (message.getMetadata() == null) return true;
 
-            String source = message.getMetadata().getAsJsonObject().get("source").getAsString();
-            Optional<GameProfile> gameProfile = Reincarnaria.userCache.getByUuid(UUID.fromString(source));
+            JsonElement source = message.getMetadata().getAsJsonObject().get("source");
+            if (source == null) return true;
+
+            Optional<GameProfile> gameProfile = Reincarnaria.userCache.getByUuid(UUID.fromString(source.getAsString()));
             if (gameProfile.isEmpty()) return false;
 
             Component component = message.getComponent();

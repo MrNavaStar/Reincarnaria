@@ -13,8 +13,6 @@
     "ServerWorldMixin",
     "VehicleInventoryMixin"
   ],
-  "client": [
-  ],
   "injectors": {
     "defaultRequire": 1
   }

@@ -9,7 +9,6 @@
     "repo": "https://github.com/ethan/Reincarnaria"
   },
   "license": "All-Rights-Reserved",
-  "icon": "assets/reincarnaria/icon.png",
   "environment": "*",
   "entrypoints": {
     "main": [
@@ -22,6 +21,6 @@
   "depends": {
     "fabricloader": ">=${loader_version}",
     "fabric": "*",
-    "sqlib": ">=2.2.2"
+    "sqlib": ">=2.2.3"
   }
 }
